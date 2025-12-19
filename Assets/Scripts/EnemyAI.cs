@@ -311,7 +311,18 @@ public class EnemyAI : MonoBehaviour
                 break;
 
             case GuardState.Chase:
+                if (player != null)
+                { 
+                    lastKnownPlayerPosition = player.position;
+                }
                 loseTargetTimer = 0f;
+
+                // trigger alarm when chasing
+                if (AlarmManager.Instance != null)
+                {
+                    AlarmManager.Instance.TriggerAlarm();
+                }
+
                 break;
         }
 
@@ -322,6 +333,28 @@ public class EnemyAI : MonoBehaviour
         {
             case GuardState.Patrol:
                 currentSuspicion = 0f;
+
+                // deactivate alarm if returning to patrol
+                if (AlarmManager.Instance != null)
+                {
+                    // check if any guards are still chasing
+                    bool anyGuardsChasing = false;
+                    EnemyAI[] allGuards = FindObjectsByType<EnemyAI>(FindObjectsSortMode.None);
+                    foreach (EnemyAI guard in allGuards)
+                    {
+                        if (guard.currentState == GuardState.Chase || guard.currentState == GuardState.Attack)
+                        {
+                            anyGuardsChasing = true;
+                            break;
+                        }
+                    }
+
+                    if (!anyGuardsChasing)
+                    {
+                        AlarmManager.Instance.DeactivateAlarm();
+                    }
+                }
+
                 break;
 
             case GuardState.Investigate:
@@ -383,5 +416,22 @@ public class EnemyAI : MonoBehaviour
         // attack range
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, attackRange);
+    }
+
+    public void InvestigatePosition(Vector2 position)
+    {
+        investigatePosition = position;
+        TransitionToState(GuardState.Investigate);
+    }
+
+    public void LosePlayerSight()
+    {
+        hasLineOfSight = false;
+        if (currentState == GuardState.Chase)
+        {
+            lastKnownPlayerPosition = player.position;
+            investigatePosition = lastKnownPlayerPosition;
+            TransitionToState(GuardState.Investigate);
+        }
     }
 }
